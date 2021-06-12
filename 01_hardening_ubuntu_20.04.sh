@@ -83,6 +83,10 @@ vi /etc/postfix/main.cf
     # change it to
         # inet_interfaces = loopback-only
     # find this line:
+        # smtpd_banner = $myhostname ESMTP $mail_name (Ubuntu)
+    # change it to
+        # smtpd_banner = $myhostname ESMTP
+    # find this line:
         # mydestination = $myhostname, <domain_name>, localhost.com, , localhost
     # change it to
         # mydestination = localhost.$mydomain, localhost, $myhostname
@@ -257,16 +261,30 @@ apt install lynis
 
 # run lynis (if you have less trust in the package, run as non-root)
 lynis audit system
+
 # examine the warnings
-grep -i "^warning" /var/log/lynis-report.dat
-grep -i "^suggestion" /var/log/lynis-report.dat
+user=$(whoami)
+grep -i "^exceptions" /home/$user/lynis-report.dat
+grep -i "^warning" /home/$user/lynis-report.dat
+grep -i "^suggestion" /home/$user/lynis-report.dat
 # to customize what you see
 # default profile is located here /etc/lynis/default.prf, if no other is specified it gets used
 # let's make a copy and edit it
 cp /etc/lynis/default.prf /etc/lynis/custom.prf
-vi /etc/lynis/custom.prf
-
+cat >> /etc/lynis/custom.prf <<EOL
 skip-test=KRNL-5788
+skip-test=KRNL-5820
+skip-test=KRNL-6000
+skip-test=FILE-6310 
+skip-test=USB-1000
+skip-test=HRDN-7222
+skip-test=NETW-2704
+skip-test=NETW-2705
+skip-test=PKGS-7410
+EOL
+
+# run lynis (if you have less trust in the package, run as non-root)
+lynis audit system --profile /etc/lynis/custom.prf
 
 # it's also possible to audit dockerfiles
 # lynis audit dockerfile Dockerfile
