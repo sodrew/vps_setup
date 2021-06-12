@@ -1,5 +1,6 @@
 #!/bin/bash
 
+#set the time to match our timezone for logging purposes
 sudo timedatectl set-timezone America/New_York
 
 # replace() {
