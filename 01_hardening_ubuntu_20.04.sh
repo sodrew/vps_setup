@@ -2,6 +2,8 @@
 
 sudo timedatectl set-timezone America/New_York
 
+#
+#
 # replace() {
 #     ex -sc '/^\s*[^#]/s/^/#/' -cx bla.conf
 #   sed -i '' "s/^$1/#$1/" $CONFIG
