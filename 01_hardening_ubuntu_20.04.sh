@@ -8,8 +8,12 @@ sudo timedatectl set-timezone America/New_York
 
 # Update repos
 apt-get update
+# enable using HTTPS for secure transport
+apt install apt-transport-https
 # Upgrade existing packages to latest
 apt-get upgrade
+# only download english
+echo 'Acquire::Languages "none";' | sudo tee /etc/apt/apt.conf.d/99disable-translations
 # Set auto-update
 apt install unattended-upgrades
 dpkg-reconfigure unattended-upgrades
@@ -93,7 +97,7 @@ systemctl restart postfix
 # to test the mail service, you need to install mailutils
 apt install mailutils
 
-emailAddress="asdf@asdf.com"
+emailAddress="user@gmail.com"
 
 # send a test note to the email of your choice
 echo "This is the body of the email" | mail -s "Test Email" $emailAddress
@@ -137,17 +141,17 @@ echo "This is the body of the email" | mail -s "Test Encrypted email" $emailAddr
 # check for accounts with Empty Passwords
     # cat /etc/shadow | awk -F: '($2==""){print $1}'
 # if you find any, lock Accounts (prepends a ! to the user’s password hash):
-    # passwd -l <accountName>
+    # passwd -l <userName>
 
 # let's define the new user name as a variable going forward
-accountName="admin"
+userName="admin"
 # add non-root account (create a user with the default configuration defined in ‘/etc/skel’)
-adduser $accountName
+adduser $userName
 # create new user with sudo rights
-usermod -aG sudo $accountName
+usermod -aG sudo $userName
 # lock down the root account if needed
     # become the new user
-    # su $accountName
+    # su $userName
     # disable root login
     # sudo passwd -l root
 
@@ -249,10 +253,6 @@ apt-cache policy lynis
     # if it is out of date with the version at https://packages.cisofy.com/
     # download and install the Lynis repository PGP signing key from a central keyserver;
     wget -O - https://packages.cisofy.com/keys/cisofy-software-public.key | sudo apt-key add -
-    # enable using HTTPS for secure transport
-    apt install apt-transport-https
-    # only download english
-    echo 'Acquire::Languages "none";' | sudo tee /etc/apt/apt.conf.d/99disable-translations
     # install the lynis repo
     echo "deb https://packages.cisofy.com/community/lynis/deb/ stable main" | sudo tee /etc/apt/sources.list.d/cisofy-lynis.list
     # resynchronize the package repositories to their latest versions;
