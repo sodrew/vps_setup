@@ -3,11 +3,6 @@
 #set the time to match our timezone for logging purposes
 sudo timedatectl set-timezone America/New_York
 
-# replace() {
-#     ex -sc '/^\s*[^#]/s/^/#/' -cx bla.conf
-#   sed -i '' "s/^$1/#$1/" $CONFIG
-# }
-
 #-----------------------------------------------------------------------------------
 # [1] PATCHING "An incredible amount of attack surface can be eliminated by merely staying vigilant about patching"
 
@@ -132,7 +127,7 @@ vi /etc/postfix/main.cf
         # smtpd_tls_cert_file=/etc/letsencrypt/live/your_domain/fullchain.pem
         # smtpd_tls_key_file=/etc/letsencrypt/live/your_domain/privkey.pem
 
-echo "This is the body of the email" | mail -s "Test Encrpyted email" $emailAddress
+echo "This is the body of the email" | mail -s "Test Encrypted email" $emailAddress
 
 #-----------------------------------------------------------------------------------
 # [3] ACCOUNTS "lock down users"
@@ -232,6 +227,8 @@ iptables -A INPUT -p tcp -m tcp --dport $sshPort -m state --state NEW,ESTABLISHE
 iptables -A INPUT -p tcp -m tcp --dport 80 -m state --state NEW,ESTABLISHED -j ACCEPT
 # enable https
 iptables -A INPUT -p tcp -m tcp --dport 443 -m state --state NEW,ESTABLISHED -j ACCEPT
+# enable response from connections we've initiated
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 # enable loop back
 iptables -A INPUT -I lo -j ACCEPT
 # drops all packets that don't match the rules above
@@ -239,6 +236,9 @@ iptables -P INPUT DROP
 
 # make sure iptables persists
 apt-get install iptables-persistent
+    # if you need to update your iptables in the future, make sure to run
+    # iptables-save > /etc/iptables/rules.v4
+    # iptables-save > /etc/iptables/rules.v6
 
 #-----------------------------------------------------------------------------------
 # [6] SECTOOLS "install security and monitoring tools"
@@ -298,6 +298,11 @@ systemctl start fail2ban
 apt install chkrootkit
 # Open /etc/chkrootkit.conf , Replace the first line to reflect RUN_DAILY="true"
 
+# replace() {
+#     ex -sc '/^\s*[^#]/s/^/#/' -cx bla.conf
+#   sed -i '' "s/^$1/#$1/" $CONFIG
+# }
+
 
 
 #-----------------------------------------------------------------------------------
@@ -338,3 +343,4 @@ apt install chkrootkit
 # https://upcloud.com/community/tutorials/configure-iptables-ubuntu/
 # https://www.howtoforge.com/tutorial/how-to-scan-linux-for-malware-and-rootkits/
 # https://kifarunix.com/install-and-setup-lynis-security-auditing-tool-on-ubuntu-20-04/
+# to be implemented: https://gist.github.com/lokhman/cc716d2e2d373dd696b2d9264c0287a3
