@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #set the time to match our timezone for logging purposes
-sudo timedatectl set-timezone America/New_York
+timedatectl set-timezone America/New_York
 
 #-----------------------------------------------------------------------------------
 # [1] PATCHING "An incredible amount of attack surface can be eliminated by merely staying vigilant about patching"
@@ -18,123 +18,37 @@ echo 'Acquire::Languages "none";' | sudo tee /etc/apt/apt.conf.d/99disable-trans
 apt install unattended-upgrades
 dpkg-reconfigure unattended-upgrades
 
-    # modify this conf file
-        # vim /etc/apt/apt.conf.d/50unattended-upgrades
-        # Uncomment these lines :
-            # "${distro_id}:${distro_codename}-updates";
-            # Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
-            # Unattended-Upgrade::Remove-Unused-Dependencies "true";
-            # Unattended-Upgrade::Automatic-Reboot "true";
-            # Unattended-Upgrade::Automatic-Reboot-Time "02:00"
-        # Uncomment and edit this line
-            # Unattended-Upgrade::Mail "root";
-        # Add this line if you only want to get mails on errors
-            # Unattended-Upgrade::MailOnlyOnError "true";
-    # modify this conf file
-        # vim /etc/apt/apt.conf.d/20auto-upgrades
-        # modify these lines to make it weekly:
-            # APT::Periodic::Update-Package-Lists "7";
-            # APT::Periodic::Unattended-Upgrade "7";
-        # add these lines
-            # APT::Periodic::Download-Upgradeable-Packages "7";
-            # APT::Periodic::AutocleanInterval "7";
+# modify this conf file
+    # cp /etc/apt/apt.conf.d/50unattended-upgrades /etc/apt/apt.conf.d/50unattended-upgrades.bak
+    # vim /etc/apt/apt.conf.d/50unattended-upgrades
+    # Uncomment these lines :
+        # "${distro_id}:${distro_codename}-updates";
+    # Uncomment and edit this line
+        # Unattended-Upgrade::Mail "root";
+    # Uncomment these lines :
+        # Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+        # Unattended-Upgrade::Remove-Unused-Dependencies "true";
+    # Uncomment and edit this line
+        # Unattended-Upgrade::Automatic-Reboot "true";
+    # Uncomment these lines :
+        # Unattended-Upgrade::Automatic-Reboot-Time "02:00"
+    # Add this line if you only want to get mails on errors
+        # Unattended-Upgrade::MailOnlyOnError "true";
+# modify this conf file
+    #  cp /etc/apt/apt.conf.d/20auto-upgrades /etc/apt/apt.conf.d/20auto-upgrades.bak
+    # vim /etc/apt/apt.conf.d/20auto-upgrades
+    # modify these lines to make it weekly:
+        # APT::Periodic::Update-Package-Lists "7";
+        # APT::Periodic::Unattended-Upgrade "7";
+    # add these lines
+        # APT::Periodic::Download-Upgradeable-Packages "7";
+        # APT::Periodic::AutocleanInterval "7";
+
 # to test this out
 unattended-upgrade -v -d --dry-run
 
 #-----------------------------------------------------------------------------------
-# [2] WEBSERVER "Apache need not broadcast so much info"
-
-# enable key modules to adjust headers, enable ssl, and turn off directory listing
-a2enmod headers
-a2dismod --force autoindex
-# a2enmod ssl
-# a2enmod proxy proxy_html
-
-cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf.bak
-# Add the following lines and restart the apache service.
-cat >> /etc/apache2/apache2.conf <<EOL
-ServerSignature Off 
-ServerTokens Prod
-TraceEnable Off
-Header unset Server
-Header unset X-Powered-By
-EOL
-
-# restart the services
-systemctl restart apache2
-
-#-----------------------------------------------------------------------------------
-# [2] MAIL "setup send only mail"
-
-# setup your domain's A record to point to the ipv4 address of this VPS
-# setup your domain's AAAA record to point to the ipv6 address of this VPS
-# setup reverse DNS on your VPS to point back to your domain
-
-# install Postfix by running the following command:
-apt install postfix
-    # in the config screen, select "internet site", but if config screen doesn't come up
-    # dpkg-reconfigure postfix
-# configure postfix to send only
-cp /etc/postfix/main.cf /etc/postfix/main.cf.bak
-vi /etc/postfix/main.cf
-    # find this line: 
-        # inet_interfaces = all
-    # change it to
-        # inet_interfaces = loopback-only
-    # find this line:
-        # smtpd_banner = $myhostname ESMTP $mail_name (Ubuntu)
-    # change it to
-        # smtpd_banner = $myhostname ESMTP
-    # find this line:
-        # mydestination = $myhostname, <domain_name>, localhost.com, , localhost
-    # change it to
-        # mydestination = localhost.$mydomain, localhost, $myhostname
-    # add this line if you want to strip off subdomains from the email address:
-        # masquerade_domains = $myhostname
-# restart to reflect the config changes
-systemctl restart postfix
-
-# to test the mail service, you need to install mailutils
-apt install mailutils
-
-emailAddress="user@gmail.com"
-
-# send a test note to the email of your choice
-echo "This is the body of the email" | mail -s "Test Email" $emailAddress
-
-# setup email to forward to the email of your choice
-cp /etc/aliases /etc/aliases.bak
-cat >> /etc/aliases <<EOL
-root:  $emailAddress
-EOL
-
-# test that this works
-echo "This is the body of the email" | mail -s "Forwarding" root
-
-# setup SMTP encryption
-# install the scripts to register
-apt install certbot
-domainName=asdf.com
-# request a free TLS certificate from Let’s Encrypt; but we'll need to stop apache so that it succeeds
-systemctl stop apache2
-certbot certonly --standalone --rsa-key-size 4096 --agree-tos --preferred-challenges http -d $domainName
-systemctl start apache2
-# you can ignore the renewal as that is setup in systemd, just run this command to validate
-systemctl list-timers
-
-# update postfix conf to use this key
-vi /etc/postfix/main.cf
-    # find this line:
-        # smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
-        # smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
-    # change it to
-        # smtpd_tls_cert_file=/etc/letsencrypt/live/your_domain/fullchain.pem
-        # smtpd_tls_key_file=/etc/letsencrypt/live/your_domain/privkey.pem
-
-echo "This is the body of the email" | mail -s "Test Encrypted email" $emailAddress
-
-#-----------------------------------------------------------------------------------
-# [3] ACCOUNTS "lock down users"
+# [2] ACCOUNTS "lock down users"
 
 # check for super user accounts
     # awk -F: '($3=="0"){print}' /etc/passwd
@@ -156,7 +70,7 @@ usermod -aG sudo $userName
     # sudo passwd -l root
 
 #-----------------------------------------------------------------------------------
-# [4] SSH "harden SSH"
+# [3] SSH "harden SSH"
 
 # set the port variable
 sshPort=22
@@ -192,8 +106,8 @@ AcceptEnv LANG LC_*
 Subsystem       sftp    /usr/lib/openssh/sftp-server
 EOL
 
-# restart the service to reflect the config changes
-systemctl restart sshd
+# reload the service to reflect the config changes
+systemctl reload sshd
 
 # if you get an error restarting
     # ssh -t
@@ -202,20 +116,29 @@ systemctl restart sshd
         # add the following entry:
             # @reboot mkdir -p -m0755 /var/run/sshd && systemctl restart ssh.service
 
-#-----------------------------------------------------------------------------------
-# [5] FIREWALL "setup iptables"
+# exit your SSH session and log back in again as the new user you created
+# then login as the root account
+su root
 
-# check current settings
-iptables -L
+#-----------------------------------------------------------------------------------
+# [4] FIREWALL "setup iptables"
+
+# check current settings (verbose)
+iptables -vL
+
+# create the directory that will house the configs
+mkdir /etc/iptables
 
 # backup current ruleset
-mkdir iptables
 iptables-save > /etc/iptables/rules.bak
 
     # Overwrite the current rules
         # iptables-restore < /etc/iptables/rules.bak
     # Add the new rules keeping the current ones
         # iptables-restore -n < /etc/iptables/rules.bak
+
+# state your ssh address
+sshPort=23
 
 # flush the tables and start from scratch
 # set the default rule to accept
@@ -234,7 +157,7 @@ iptables -A INPUT -p tcp -m tcp --dport 443 -m state --state NEW,ESTABLISHED -j 
 # enable response from connections we've initiated
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 # enable loop back
-iptables -A INPUT -I lo -j ACCEPT
+iptables -A INPUT -i lo -j ACCEPT
 # drops all packets that don't match the rules above
 iptables -P INPUT DROP
 
@@ -245,7 +168,108 @@ apt-get install iptables-persistent
     # iptables-save > /etc/iptables/rules.v6
 
 #-----------------------------------------------------------------------------------
-# [6] SECTOOLS "install security and monitoring tools"
+# [5] MAIL "setup send only mail"
+
+# setup your domain's A record to point to the ipv4 address of this VPS
+# setup your domain's AAAA record to point to the ipv6 address of this VPS
+# setup reverse DNS on your VPS to point back to your domain
+
+# install Postfix by running the following command:
+apt install postfix
+    # in the config screen, select "internet site", but if config screen doesn't come up
+    # dpkg-reconfigure postfix
+# configure postfix to send only
+cp /etc/postfix/main.cf /etc/postfix/main.cf.bak
+vi /etc/postfix/main.cf
+    # find this line:
+        # smtpd_banner = $myhostname ESMTP $mail_name (Ubuntu)
+    # change it to
+        # smtpd_banner = $myhostname ESMTP
+    # find this line:
+        # mydestination = $myhostname, <domain_name>, localhost.com, , localhost
+    # change it to
+        # mydestination = localhost.$mydomain, localhost, $myhostname
+    # find this line: 
+        # inet_interfaces = all
+    # change it to
+        # inet_interfaces = loopback-only
+    # add this line if you want to strip off subdomains from the email address:
+        # masquerade_domains = $myhostname
+
+# reload to reflect the config changes
+systemctl reload postfix
+
+# to test the mail service, you need to install mailutils
+apt install mailutils
+
+# set your email address
+emailAddress="user@gmail.com"
+
+# send a test note to the email of your choice; this will probably go to spam
+echo "This is the body of the email" | mail -s "Test Email" $emailAddress
+
+# setup email to forward to the email of your choice
+cp /etc/aliases /etc/aliases.bak
+cat >> /etc/aliases <<EOL
+root:  $emailAddress
+EOL
+
+# test that this works; this will probably go to spam
+echo "This is the body of the email" | mail -s "Test Forwarding to root" root
+
+# setup SMTP encryption by installing the scripts to register
+apt install certbot
+
+# set your domain name
+domainName="asdf.com"
+
+# request a free TLS certificate from Let’s Encrypt; but we'll need to stop apache so that it succeeds
+systemctl stop apache2
+certbot certonly --standalone --rsa-key-size 4096 --agree-tos --preferred-challenges http -d $domainName
+systemctl start apache2
+# you can ignore the renewal as that is setup in systemd, just run this command to validate certbot.service
+systemctl list-timers
+
+# update postfix conf to use this key
+vi /etc/postfix/main.cf
+    # find this line:
+        # smtpd_tls_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+        # smtpd_tls_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+    # change it to
+        # smtpd_tls_cert_file=/etc/letsencrypt/live/your_domain/fullchain.pem
+        # smtpd_tls_key_file=/etc/letsencrypt/live/your_domain/privkey.pem
+
+# restart to reflect the config changes
+systemctl reload postfix
+
+# test this out; this should not go to spam once it's been signed
+echo "This is the body of the email" | mail -s "Test Encrypted email" root
+
+#-----------------------------------------------------------------------------------
+# [6] WEBSERVER "Apache need not broadcast so much info"
+
+# enable key modules to adjust headers, enable ssl, and turn off directory listing
+a2enmod headers
+a2dismod --force autoindex
+# a2enmod ssl
+# a2enmod proxy proxy_html
+
+cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf.bak
+# Add the following lines and restart the apache service.
+cat >> /etc/apache2/apache2.conf <<EOL
+ServerSignature Off 
+ServerTokens Prod
+TraceEnable Off
+Header unset Server
+Header unset X-Powered-By
+EOL
+
+# restart the services
+systemctl restart apache2
+
+
+#-----------------------------------------------------------------------------------
+# [7] SECTOOLS "install security and monitoring tools"
 
 # install lynis
 # verify that lynis is out of date with what is currently available
@@ -290,20 +314,13 @@ lynis audit system --profile /etc/lynis/custom.prf
 # lynis audit dockerfile Dockerfile
 
 # install fail2ban
-sudo apt-get install fail2ban
-cp -rv /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-systemctl start fail2ban
+#TODO sudo apt-get install fail2ban
+#TODO cp -rv /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+#TODO systemctl start fail2ban
 
 # Installing chkrootkit on Ubuntu 20.04
-apt install chkrootkit
+#TODO apt install chkrootkit
 # Open /etc/chkrootkit.conf , Replace the first line to reflect RUN_DAILY="true"
-
-# replace() {
-#     ex -sc '/^\s*[^#]/s/^/#/' -cx bla.conf
-#   sed -i '' "s/^$1/#$1/" $CONFIG
-# }
-
-
 
 #-----------------------------------------------------------------------------------
 # REFERENCES
